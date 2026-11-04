@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 dotenv.config();
 
 // Connect to MongoDB database
-const connectDB = require('./config/db');
+const { connectDB, getDbError } = require('./config/db');
 connectDB();
 
 // Initialize Express app
@@ -40,13 +40,27 @@ app.get('/api/health', (req, res) => {
     database: {
       status: dbStates[stateCode] || 'unknown',
       readyState: stateCode,
-      host: mongoose.connection.host || null
+      host: mongoose.connection.host || null,
+      error: getDbError()
     },
     config: {
       hasMongoUri: Boolean(process.env.MONGO_URI),
       hasJwtSecret: Boolean(process.env.JWT_SECRET),
       port: process.env.PORT || 5000
     }
+  });
+});
+
+// Retry DB connection endpoint if needed
+app.post('/api/health/reconnect', async (req, res) => {
+  await connectDB();
+  const dbStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const stateCode = mongoose.connection.readyState;
+  res.status(200).json({
+    status: dbStates[stateCode] || 'unknown',
+    readyState: stateCode,
+    host: mongoose.connection.host || null,
+    error: getDbError()
   });
 });
 
