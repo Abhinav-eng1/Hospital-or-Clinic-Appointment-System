@@ -3,9 +3,24 @@
 
 import axios from 'axios';
 
+// Determine base API URL:
+// 1. If VITE_API_URL environment variable is provided, use it (ensuring it ends with /api)
+// 2. If running in production (e.g. deployed on Vercel), default to the Render backend URL
+// 3. In local development without env variable, use '/api' to leverage Vite's local dev proxy
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    const raw = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+    return raw.endsWith('/api') ? raw : `${raw}/api`;
+  }
+  if (import.meta.env.PROD) {
+    return 'https://hospital-or-clinic-appointment-system.onrender.com/api';
+  }
+  return '/api';
+};
+
 // Create a pre-configured Axios client
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },

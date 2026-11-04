@@ -4,6 +4,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -16,18 +17,36 @@ connectDB();
 const app = express();
 
 // Middlewares
+// Dynamic CORS handling to safely support credentials without wildcard conflicts
 app.use(cors({
-  origin: '*', // Allow frontend requests
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Postman, curl, server-to-server) and any web origin
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json()); // Parse JSON request bodies
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
+// Health check endpoint with diagnostic information
 app.get('/api/health', (req, res) => {
+  const dbStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const stateCode = mongoose.connection.readyState;
   res.status(200).json({
     success: true,
-    message: 'Hospital Appointment System API is up and running'
+    message: 'Hospital Appointment System API is up and running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    database: {
+      status: dbStates[stateCode] || 'unknown',
+      readyState: stateCode,
+      host: mongoose.connection.host || null
+    },
+    config: {
+      hasMongoUri: Boolean(process.env.MONGO_URI),
+      hasJwtSecret: Boolean(process.env.JWT_SECRET),
+      port: process.env.PORT || 5000
+    }
   });
 });
 
@@ -43,8 +62,8 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorMiddleware'
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server
+// Start server listening on 0.0.0.0 for cloud host compatibility (Render, Docker, etc.)
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
